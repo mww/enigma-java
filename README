@@ -1,0 +1,57 @@
+A simple simulation of an Enigma machine. You provide an encrypted message and
+this will try all the different combinations of rotors, reflectors, and starting
+positions to find the proper key. The messages and decrypes will be in ALL CAPS
+with no spaces.
+
+To determine which solution is correct this does a letter frequency analysis
+and a digraph frequency analysis on the dycrypted message. Using the known
+frequency of letters and digraphs in the English language, this assigns a score
+to each decryption. The messages with the lowest scores are kept and displayed.
+In my experiments, on a message of 80 characters is more than enough to make a
+very good guess. Very short messages are much harder.
+
+To build and run this engima machine, you need a copy of the Google Guava and
+Args4J libraries. I'm using versions 11.0.1 and 2.0.19 respectively.
+
+http://code.google.com/p/guava-libraries/
+http://args4j.kohsuke.org/
+
+This was built using an Enigma simulator from
+http://enigmaco.de/enigma/enigma.html as an oracle. The rotor mappings and
+other information was taken from the Enigma and Enigma Rotor wikipedia pages.
+
+http://en.wikipedia.org/wiki/Enigma_machine
+http://en.wikipedia.org/wiki/Enigma_rotor_details
+
+The letter frequencies used in the frequency analysis can be found in the
+Letter frequency wikipedia article.
+http://en.wikipedia.org/wiki/Letter_frequencies
+
+The program takes a variety of arguments:
+-message: Message is a required argument, it is the encrypted message to break.
+-crib: If you have a crib, a known word in the decrypted message, you can
+provide it to help identify the proper decoded message.
+-rotors: The rotors to use. This should be a comma separated list. By default
+the value is "1,2,3,4 5". If you know the message doesn't use rotor 4, then you
+can reduce the number of combinations tried by changing rotors to "1,2,3,5".
+-reflectors: Same as rotors, but which reflectors to use. By default this is
+"A,B,C", but the simulator linked above only uses rotor B, so you can speed up
+processing a lot by only specifying B.
+-results: The number of results to display. By default this is 10.
+-num_threads: The number of threads to use while processing. By default this is
+8.
+
+Some sample messages you can try are:
+PGNDXCFAUUONYCXZSTPPXTPKFWVRXJYSKPZSCRYPSGEVTVYKCBQJDPUAZZQLOGLGWQGAEAOGTLPNVI
+which decrypts to
+THISISASLIGHTLYLONGERTESTSOIHAVETOSEEIFICANKEEPWRITINGALONGERSTRINGTOUSEASINPUT
+
+PCSONKFYSIQHZJCVFLPAWUWTXWYNWPTCCLOJNNKNCNECAAQPYNEWIFHVDZQIWYTXMEQQMZ
+which decrypts to
+IDONTREALLYKNOWWHATTHISMESSAGEISGOINGTOSAYBUTIMGOINGTOKEEPTYPINGANYWAY
+
+MTVZLRUGJUPYISBINSDHPNXNJVYTX
+which decrypts to
+THISISASHORTMESSAGENOCRACKING
+but only is you provide the crib SHORT
+
