@@ -18,6 +18,7 @@ package org.theelements.enigma;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.SortedSet;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -28,6 +29,7 @@ import org.kohsuke.args4j.Option;
 import org.theelements.enigma.EnigmaMachine.EnigmaMachineConfig;
 
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 
 public class EnigmaRunner {
 
@@ -164,7 +166,8 @@ public class EnigmaRunner {
       reflectorsToUse.add(reflector);
     }
 
-    List<EnigmaResult> finalResults = Lists.newArrayListWithCapacity(numResults);
+    SortedSet<EnigmaResult> finalResults = Collections.synchronizedSortedSet(
+        Sets.<EnigmaResult>newTreeSet());
     ExecutorService executor = Executors.newFixedThreadPool(numThreads);
 
     List<Character> letters = Lists.newArrayListWithCapacity(26);
@@ -192,13 +195,12 @@ public class EnigmaRunner {
 
         for (Future<EnigmaResult> future : results) {
           EnigmaResult result = future.get();
-          addResultToQueue(result, finalResults);
+          maybeAddResult(result, finalResults);
         }
       }
     }
 
     executor.shutdown();
-    Collections.sort(finalResults);
 
     for (EnigmaResult result : finalResults) {
       System.out.println(result);
@@ -206,19 +208,21 @@ public class EnigmaRunner {
     }
   }
 
-  private void addResultToQueue(EnigmaResult result, List<EnigmaResult> list) {
-    synchronized(list) {
-      if (list.size() < numResults) {
-        list.add(result);
-        Collections.sort(list);
-        return;
-      }
+  /**
+   * Add result to results only if there are less than numResults already in
+   * the set, or if result.getDifference() is less than last item in the
+   * sorted set.
+   */
+  private void maybeAddResult(EnigmaResult result, SortedSet<EnigmaResult> results) {
+    if (results.size() < numResults) {
+      results.add(result);
+      return;
+    }
 
-      if (result.getDifference() < list.get(numResults - 1).getDifference()) {
-        list.remove(numResults - 1);
-        list.add(result);
-        Collections.sort(list);
-      }
+    EnigmaResult last = results.last();
+    if (result.getDifference() < last.getDifference()) {
+      results.remove(last);
+      results.add(result);
     }
   }
 
