@@ -84,7 +84,7 @@ public class EnigmaRunner {
     public EnigmaCallable(EnigmaMachineConfig config, final char[] message, String crib) {
       this.message = message;
       this.crib = crib;
-      machine = new EnigmaMachine(config);
+      machine = EnigmaMachine.getEnigmaMachine(config);
       analysis = new FrequencyAnalysis();
     }
 
@@ -107,7 +107,9 @@ public class EnigmaRunner {
           score -= crib.length() * 100;
         }
       }
-      return new EnigmaResult(decodedMessage, score, machine.toString());
+      EnigmaResult enigmaResult = new EnigmaResult(decodedMessage, score, machine.toString());
+      EnigmaMachine.freeEnigmaMachine(machine);
+      return enigmaResult;
     }
   }
 
@@ -127,7 +129,7 @@ public class EnigmaRunner {
   private int numThreads = 8;
 
   @Option(name="-results", usage="The number of results to display.")
-  private int numResults = 10;
+  private int numResults = 3;
 
   public void doMain(String[] args) throws Exception {
     CmdLineParser parser = new CmdLineParser(this);
@@ -189,8 +191,6 @@ public class EnigmaRunner {
           tasks.add(new EnigmaCallable(config, messageArray, crib));
         }
 
-        System.out.println(String.format("Running config: %s, %s, %s, %s", rotors.o1, rotors.o2,
-            rotors.o3, reflector));
         List<Future<EnigmaResult>> results = executor.invokeAll(tasks);
 
         for (Future<EnigmaResult> future : results) {

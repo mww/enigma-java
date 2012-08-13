@@ -31,12 +31,12 @@ public class EnigmaMachineTest {
 
   @Before
   public void setUp() {
-    machine = new EnigmaMachine(new EnigmaMachineConfig('A', 'A', 'A', Rotor.ROTOR_1_1930,
-        Rotor.ROTOR_2_1930, Rotor.ROTOR_3_1930, Rotor.REFLECTOR_B));
-    machine2 = new EnigmaMachine(new EnigmaMachineConfig('A', 'D', 'U', Rotor.ROTOR_1_1930,
-        Rotor.ROTOR_2_1930, Rotor.ROTOR_3_1930, Rotor.REFLECTOR_B));
-    machine3 = new EnigmaMachine(new EnigmaMachineConfig('V', 'P', 'C', Rotor.ROTOR_3_1930,
-        Rotor.ROTOR_1_1930, Rotor.ROTOR_2_1930, Rotor.REFLECTOR_B));
+    machine = EnigmaMachine.getEnigmaMachine(new EnigmaMachineConfig('A', 'A', 'A',
+        Rotor.ROTOR_1_1930, Rotor.ROTOR_2_1930, Rotor.ROTOR_3_1930, Rotor.REFLECTOR_B));
+    machine2 = EnigmaMachine.getEnigmaMachine(new EnigmaMachineConfig('A', 'D', 'U',
+        Rotor.ROTOR_1_1930, Rotor.ROTOR_2_1930, Rotor.ROTOR_3_1930, Rotor.REFLECTOR_B));
+    machine3 = EnigmaMachine.getEnigmaMachine(new EnigmaMachineConfig('V', 'P', 'C',
+        Rotor.ROTOR_3_1930, Rotor.ROTOR_1_1930, Rotor.ROTOR_2_1930, Rotor.REFLECTOR_B));
   }
 
   @Test

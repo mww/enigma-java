@@ -16,6 +16,8 @@
 
 package org.theelements.enigma;
 
+import java.util.concurrent.ConcurrentLinkedQueue;
+
 public class EnigmaMachine {
 
   private static final char[] LETTERS = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K',
@@ -42,6 +44,15 @@ public class EnigmaMachine {
     }
   }
 
+  private static ConcurrentLinkedQueue<EnigmaMachine> freeList;
+
+  static {
+    freeList = new ConcurrentLinkedQueue<EnigmaMachine>();
+    for (int i = 0; i < 200000; i++) {
+      freeList.add(new EnigmaMachine());
+    }
+  }
+
   private Rotor rotor1;
   private Rotor rotor2;
   private Rotor rotor3;
@@ -52,11 +63,28 @@ public class EnigmaMachine {
   private int position2;
   private int position3;
 
-  private final char rotor1Start;
-  private final char rotor2Start;
-  private final char rotor3Start;
+  private char rotor1Start;
+  private char rotor2Start;
+  private char rotor3Start;
 
-  public EnigmaMachine(EnigmaMachineConfig config) {
+  public static EnigmaMachine getEnigmaMachine(EnigmaMachineConfig config) {
+    if (freeList.isEmpty()) {
+      for (int i = 0; i < 100000; i++) {
+        freeList.add(new EnigmaMachine());
+      }
+    }
+    EnigmaMachine machine = freeList.poll();
+    machine.init(config);
+    return machine;
+  }
+
+  public static void freeEnigmaMachine(EnigmaMachine machine) {
+    freeList.add(machine);
+  }
+
+  private EnigmaMachine() { /* No public constructor. */ }
+
+  private void init(EnigmaMachineConfig config) {
     this.rotor1 = config.rotorA;
     this.rotor2 = config.rotorB;
     this.rotor3 = config.rotorC;
