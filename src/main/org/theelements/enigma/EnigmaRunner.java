@@ -16,9 +16,7 @@
 
 package org.theelements.enigma;
 
-import java.util.Collections;
 import java.util.List;
-import java.util.SortedSet;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -26,10 +24,10 @@ import java.util.concurrent.Future;
 
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
+import org.theelements.collect.SortedFixedSizedList;
 import org.theelements.enigma.EnigmaMachine.EnigmaMachineConfig;
 
 import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
 
 public class EnigmaRunner {
 
@@ -45,7 +43,7 @@ public class EnigmaRunner {
     }
   }
 
-  private static class EnigmaResult implements Comparable<EnigmaResult> {
+  protected static class EnigmaResult implements Comparable<EnigmaResult> {
     private String message;
     private String settings;
     private double difference;
@@ -60,6 +58,10 @@ public class EnigmaRunner {
       return difference;
     }
 
+    public String getMessage() {
+      return message;
+    }
+
     @Override
     public String toString() {
       StringBuilder buf = new StringBuilder();
@@ -71,7 +73,7 @@ public class EnigmaRunner {
 
     @Override
     public int compareTo(EnigmaResult other) {
-      return Double.compare(difference, other.difference);
+      return Double.compare(other.difference, difference);
     }
   }
 
@@ -168,8 +170,19 @@ public class EnigmaRunner {
       reflectorsToUse.add(reflector);
     }
 
-    SortedSet<EnigmaResult> finalResults = Collections.synchronizedSortedSet(
-        Sets.<EnigmaResult>newTreeSet());
+    SortedFixedSizedList<EnigmaResult> results = run(messageArray, rotorsToUse, reflectorsToUse,
+        numResults, numThreads);
+
+    for (EnigmaResult result : results) {
+      System.out.println(result);
+      System.out.println("==============================");
+    }
+  }
+
+  public SortedFixedSizedList<EnigmaResult> run(char[] message, List<Rotor> rotorList,
+      List<Rotor> reflectors, int numResults, int numThreads) throws Exception {
+    SortedFixedSizedList<EnigmaResult> finalResults =
+        new SortedFixedSizedList<EnigmaResult>(numResults);
     ExecutorService executor = Executors.newFixedThreadPool(numThreads);
 
     List<Character> letters = Lists.newArrayListWithCapacity(26);
@@ -177,53 +190,31 @@ public class EnigmaRunner {
       letters.add(c);
     }
     List<Triple<Character>> startingPositions = permutations(letters, true);
-    List<Triple<Rotor>> rotorPermutations = permutations(rotorsToUse, false);
+    List<Triple<Rotor>> rotorPermutations = permutations(rotorList, false);
 
     for (Triple<Rotor> rotors : rotorPermutations) {
       // TODO(mww): Come up with the correct initial capacity.
-      for (Rotor reflector : reflectorsToUse) {
+      for (Rotor reflector : reflectors) {
 
         List<EnigmaCallable> tasks = Lists.newArrayListWithCapacity(1000);
         for (Triple<Character> startingPosition : startingPositions) {
           EnigmaMachineConfig config = new EnigmaMachineConfig(startingPosition.o1,
               startingPosition.o2, startingPosition.o3, rotors.o1, rotors.o2, rotors.o3,
               reflector);
-          tasks.add(new EnigmaCallable(config, messageArray, crib));
+          tasks.add(new EnigmaCallable(config, message, crib));
         }
 
         List<Future<EnigmaResult>> results = executor.invokeAll(tasks);
 
         for (Future<EnigmaResult> future : results) {
           EnigmaResult result = future.get();
-          maybeAddResult(result, finalResults);
+          finalResults.maybeAdd(result);
         }
       }
     }
 
     executor.shutdown();
-
-    for (EnigmaResult result : finalResults) {
-      System.out.println(result);
-      System.out.println("==============================");
-    }
-  }
-
-  /**
-   * Add result to results only if there are less than numResults already in
-   * the set, or if result.getDifference() is less than last item in the
-   * sorted set.
-   */
-  private void maybeAddResult(EnigmaResult result, SortedSet<EnigmaResult> results) {
-    if (results.size() < numResults) {
-      results.add(result);
-      return;
-    }
-
-    EnigmaResult last = results.last();
-    if (result.getDifference() < last.getDifference()) {
-      results.remove(last);
-      results.add(result);
-    }
+    return finalResults;
   }
 
   private <T> List<Triple<T>> permutations(List<T> items, boolean duplicates) {
