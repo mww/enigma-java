@@ -38,7 +38,7 @@ public class SortedFixedSizedList<E extends Comparable<E>> implements Iterable<E
 
     @Override
     public boolean hasNext() {
-      return current == null;
+      return current != null;
     }
 
     @Override
