@@ -38,7 +38,7 @@ can reduce the number of combinations tried by changing rotors to "1,2,3,5".
 -reflectors: Same as rotors, but which reflectors to use. By default this is
 "A,B,C", but the simulator linked above only uses rotor B, so you can speed up
 processing a lot by only specifying B.
--results: The number of results to display. By default this is 10.
+-results: The number of results to display. By default this is 3.
 -num_threads: The number of threads to use while processing. By default this is
 8.
 
