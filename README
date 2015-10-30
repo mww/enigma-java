@@ -10,12 +10,6 @@ to each decryption. The messages with the lowest scores are kept and displayed.
 In my experiments, on a message of 80 characters is more than enough to make a
 very good guess. Very short messages are much harder.
 
-To build and run this engima machine, you need a copy of the Google Guava and
-Args4J libraries. I'm using versions 11.0.1 and 2.0.19 respectively.
-
-http://code.google.com/p/guava-libraries/
-http://args4j.kohsuke.org/
-
 This was built using an Enigma simulator from
 http://enigmaco.de/enigma/enigma.html as an oracle. The rotor mappings and
 other information was taken from the Enigma and Enigma Rotor wikipedia pages.
@@ -26,6 +20,13 @@ http://en.wikipedia.org/wiki/Enigma_rotor_details
 The letter frequencies used in the frequency analysis can be found in the
 Letter frequency wikipedia article.
 http://en.wikipedia.org/wiki/Letter_frequencies
+
+To build use:
+$ gradle clean test
+$ gradle shadowJar
+
+To run use:
+$ java -jar build/libs/enigma-java-0.1-add.jar
 
 The program takes a variety of arguments:
 -message: Message is a required argument, it is the encrypted message to break.
@@ -60,5 +61,8 @@ Reflector: B
 MTVZLRUGJUPYISBINSDHPNXNJVYTX
 which decrypts to
 THISISASHORTMESSAGENOCRACKING
+with KEY: TJB
+Rotors: 3, 1, 4
+Reflector: B
 but only is you provide the crib SHORT
 
