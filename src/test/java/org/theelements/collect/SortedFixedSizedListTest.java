@@ -1,4 +1,4 @@
-package org.thelements.collect;
+package org.theelements.collect;
 
 import java.util.Iterator;
 
