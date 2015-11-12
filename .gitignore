@@ -1,2 +1,9 @@
+# Files added by gradle
 .gradle
 build/
+
+# Eclipse workspace files
+.classpath
+.project
+.settings/
+bin/
