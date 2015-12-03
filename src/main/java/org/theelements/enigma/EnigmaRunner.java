@@ -17,10 +17,10 @@
 package org.theelements.enigma;
 
 import java.util.List;
-import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
@@ -32,9 +32,9 @@ import com.google.common.collect.Lists;
 public class EnigmaRunner {
 
   private static class Triple<T> {
-    public T o1;
-    public T o2;
-    public T o3;
+    public final T o1;
+    public final T o2;
+    public final T o3;
 
     public Triple(T o1, T o2, T o3) {
       this.o1 = o1;
@@ -74,44 +74,6 @@ public class EnigmaRunner {
     @Override
     public int compareTo(EnigmaResult other) {
       return Double.compare(other.difference, difference);
-    }
-  }
-
-  private static class EnigmaCallable implements Callable<EnigmaResult> {
-    private EnigmaMachine machine;
-    private FrequencyAnalysis analysis;
-    private final char[] message;
-    private String crib;
-
-    public EnigmaCallable(EnigmaMachineConfig config, final char[] message, String crib) {
-      this.message = message;
-      this.crib = crib;
-      machine = EnigmaMachine.getEnigmaMachine(config);
-      analysis = new FrequencyAnalysis();
-    }
-
-    @Override
-    public EnigmaResult call() throws Exception {
-      StringBuilder result = new StringBuilder();
-
-      char letter;
-      for (char c : message) {
-        letter = machine.step(c);
-        result.append(letter);
-        analysis.add(letter);
-      }
-
-      String decodedMessage = result.toString();
-      double score = analysis.calculateDifference();
-      if (crib != null) {
-        if (decodedMessage.contains(crib)) {
-          System.out.println("=== Found crib in the message: " + decodedMessage + " ===");
-          score -= crib.length() * 100;
-        }
-      }
-      EnigmaResult enigmaResult = new EnigmaResult(decodedMessage, score, machine.toString());
-      EnigmaMachine.freeEnigmaMachine(machine);
-      return enigmaResult;
     }
   }
 
@@ -179,11 +141,35 @@ public class EnigmaRunner {
     }
   }
 
+  // TODO(mww): Benchmark and then convert this to use java 8. I should be able to make a
+  // stream out of all of the tasks, use CompletableFuture.supplyAsync() with the executor
+  // to create a bunch of CompletableFutures that I can then add to the output list. Want a
+  // benchmark before and after to see the new method is any faster.
+  //
+  // Benchmark pre-java 8 version. Using:
+  // time java -jar build/libs/enigma-java-0.1-all.jar \
+  //   -message=ZTQBLVXKPBPGAVQBRYDYQEZNKRLMZTMRGBJSQKHDPHHNTNIDLYVFCOKZYYSMJFAHQBTEAVFKOXRPSQX
+  // Over 3 runs I saw real times of:
+  // 0m11.120s, 0m11.335s, and 0m10.704s
+  //
+  // The java 8 version had real times of:
+  // 0m19.946s, 0m20.340s, 0m19.811s
+  //
+  // So the new version is much slower.
+  // My initial guess is this has to do with combining the results and the fact that
+  // SortedFixedSizedList is single threaded and therefore running on its own executor. Perhaps
+  // I can make it thread safe, or perhaps I can make a single one for each thread in the
+  // thread pool, and add the results there as the task finishes. Then I can combine all of the
+  // results.
+  //
+  // I should profile the code and verify this hunch before I spend much time trying to
+  // improve the results.
   public SortedFixedSizedList<EnigmaResult> run(char[] message, List<Rotor> rotorList,
       List<Rotor> reflectors, int numResults, int numThreads) throws Exception {
     SortedFixedSizedList<EnigmaResult> finalResults =
         new SortedFixedSizedList<EnigmaResult>(numResults);
     ExecutorService executor = Executors.newFixedThreadPool(numThreads);
+    ExecutorService combineResultsExecutor = Executors.newSingleThreadExecutor();
 
     List<Character> letters = Lists.newArrayListWithCapacity(26);
     for (Character c : "ABCDEFGHIJKLMNOPQRSTUVWXYZ".toCharArray()) {
@@ -193,28 +179,59 @@ public class EnigmaRunner {
     List<Triple<Rotor>> rotorPermutations = permutations(rotorList, false);
 
     for (Triple<Rotor> rotors : rotorPermutations) {
-      // TODO(mww): Come up with the correct initial capacity.
       for (Rotor reflector : reflectors) {
-
-        List<EnigmaCallable> tasks = Lists.newArrayListWithCapacity(1000);
         for (Triple<Character> startingPosition : startingPositions) {
           EnigmaMachineConfig config = new EnigmaMachineConfig(startingPosition.o1,
               startingPosition.o2, startingPosition.o3, rotors.o1, rotors.o2, rotors.o3,
               reflector);
-          tasks.add(new EnigmaCallable(config, message, crib));
-        }
 
-        List<Future<EnigmaResult>> results = executor.invokeAll(tasks);
-
-        for (Future<EnigmaResult> future : results) {
-          EnigmaResult result = future.get();
-          finalResults.maybeAdd(result);
+          CompletableFuture.supplyAsync(() -> decodeMessage(config, message, crib), executor)
+              .thenAcceptAsync((EnigmaResult r) -> finalResults.maybeAdd(r), combineResultsExecutor);
         }
       }
     }
 
+    // Tell the executor to stop accepting new requests
     executor.shutdown();
+    // TODO(mww): Need a better way to wait for all the tasks in the executor to finish.
+    if (!executor.awaitTermination(2, TimeUnit.MINUTES)) {
+    	System.err.println("Executor did not shutdown as expected! Forcing it to stop.");
+    	executor.shutdownNow();
+    }
+    combineResultsExecutor.shutdown();
+    if (!combineResultsExecutor.awaitTermination(1, TimeUnit.MINUTES)) {
+    	System.err.println("CombineResultsExecutor did not shutdown as expected!");
+    	combineResultsExecutor.shutdownNow();
+    }
     return finalResults;
+  }
+  
+  private EnigmaResult decodeMessage(EnigmaMachineConfig config, final char[] message, String crib) {
+	  EnigmaMachine machine = EnigmaMachine.getEnigmaMachine(config);
+	  FrequencyAnalysis analysis = new FrequencyAnalysis();
+	  StringBuilder result = new StringBuilder(message.length);
+
+	  try {
+	      char letter;
+	      for (char c : message) {
+	        letter = machine.step(c);
+	        result.append(letter);
+	        analysis.add(letter);
+	      }
+	
+	      String decodedMessage = result.toString();
+	      double score = analysis.calculateDifference();
+	      if (crib != null) {
+	        if (decodedMessage.contains(crib)) {
+	          System.out.println("=== Found crib in the message: " + decodedMessage + " ===");
+	          score -= crib.length() * 100;
+	        }
+	      }
+	      EnigmaResult enigmaResult = new EnigmaResult(decodedMessage, score, machine.toString());
+	      return enigmaResult;
+	  } finally {
+		  EnigmaMachine.freeEnigmaMachine(machine);
+	  }
   }
 
   private <T> List<Triple<T>> permutations(List<T> items, boolean duplicates) {
