@@ -26,7 +26,7 @@ $ gradle clean test
 $ gradle shadowJar
 
 To run use:
-$ java -jar build/libs/enigma-java-0.1-add.jar
+$ java -jar build/libs/enigma-java-0.1-all.jar
 
 The program takes a variety of arguments:
 -message: Message is a required argument, it is the encrypted message to break.
