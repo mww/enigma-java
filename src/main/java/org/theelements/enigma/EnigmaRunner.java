@@ -16,6 +16,7 @@
 
 package org.theelements.enigma;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -74,6 +75,7 @@ public class EnigmaRunner {
     @Override
     public int compareTo(EnigmaResult other) {
       return Double.compare(other.difference, difference);
+      //return Double.compare(difference,  other.difference);
     }
   }
 
@@ -131,6 +133,9 @@ public class EnigmaRunner {
       }
       reflectorsToUse.add(reflector);
     }
+    
+    // TODO(mww): Remove this.
+    //System.console().readLine("Press enter to start");
 
     SortedFixedSizedList<EnigmaResult> results = run(messageArray, rotorsToUse, reflectorsToUse,
         numResults, numThreads);
@@ -169,9 +174,9 @@ public class EnigmaRunner {
     SortedFixedSizedList<EnigmaResult> finalResults =
         new SortedFixedSizedList<EnigmaResult>(numResults);
     ExecutorService executor = Executors.newFixedThreadPool(numThreads);
-    ExecutorService combineResultsExecutor = Executors.newSingleThreadExecutor();
+    ExecutorService singleThreadExecutor = Executors.newSingleThreadExecutor();
 
-    List<Character> letters = Lists.newArrayListWithCapacity(26);
+    List<Character> letters = new ArrayList<>(26);
     for (Character c : "ABCDEFGHIJKLMNOPQRSTUVWXYZ".toCharArray()) {
       letters.add(c);
     }
@@ -180,13 +185,14 @@ public class EnigmaRunner {
 
     for (Triple<Rotor> rotors : rotorPermutations) {
       for (Rotor reflector : reflectors) {
+
         for (Triple<Character> startingPosition : startingPositions) {
           EnigmaMachineConfig config = new EnigmaMachineConfig(startingPosition.o1,
               startingPosition.o2, startingPosition.o3, rotors.o1, rotors.o2, rotors.o3,
               reflector);
 
           CompletableFuture.supplyAsync(() -> decodeMessage(config, message, crib), executor)
-              .thenAcceptAsync((EnigmaResult r) -> finalResults.maybeAdd(r), combineResultsExecutor);
+              .thenAcceptAsync((EnigmaResult r) -> finalResults.maybeAdd(r), singleThreadExecutor);
         }
       }
     }
@@ -198,11 +204,8 @@ public class EnigmaRunner {
     	System.err.println("Executor did not shutdown as expected! Forcing it to stop.");
     	executor.shutdownNow();
     }
-    combineResultsExecutor.shutdown();
-    if (!combineResultsExecutor.awaitTermination(1, TimeUnit.MINUTES)) {
-    	System.err.println("CombineResultsExecutor did not shutdown as expected!");
-    	combineResultsExecutor.shutdownNow();
-    }
+    singleThreadExecutor.shutdown();
+
     return finalResults;
   }
   
